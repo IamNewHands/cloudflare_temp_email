@@ -1,0 +1,39 @@
+# Fork-owned fork-sync workflow.
+#
+# The upstream repo ships its own `.github/workflows/sync.yaml`, but it runs
+# `gh repo sync` with GITHUB_TOKEN, which can never be granted the `workflows`
+# permission. The moment an upstream commit touches `.github/workflows/*`, the
+# merge is refused with:
+#   Upstream commits contain workflow changes, which require the `workflow`
+#   scope or permission to merge.
+# The upstream workflow is disabled in this fork; this file owns the sync
+# instead, so future upstream edits to its own sync.yaml never conflict here.
+
+name: Fork Sync
+
+on:
+  schedule:
+    - cron: "0 0 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync_latest_from_upstream:
+    name: Sync latest commits from upstream repo
+    runs-on: ubuntu-latest
+    if: ${{ github.event.repository.fork }}
+
+    steps:
+      - name: Sync fork with upstream
+        env:
+          # PAT with Contents + Workflows read/write. Without it the step falls
+          # back to GITHUB_TOKEN and fails whenever upstream touches a workflow.
+          SYNC_TOKEN: ${{ secrets.SYNC_TOKEN }}
+          GH_TOKEN: ${{ secrets.SYNC_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -z "$SYNC_TOKEN" ]; then
+            echo "::warning::SYNC_TOKEN 未配置，回退到 GITHUB_TOKEN；上游改动 .github/workflows/ 时同步会失败。"
+          fi
+          gh repo sync "$GITHUB_REPOSITORY" --source dreamhunter2333/cloudflare_temp_email --branch main
