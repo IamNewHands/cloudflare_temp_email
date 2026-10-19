@@ -15,6 +15,12 @@ on:
   schedule:
     - cron: "0 0 * * 1"
   workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to sync (default: main)"
+        required: false
+        default: main
+        type: string
 
 permissions:
   contents: write
@@ -32,8 +38,10 @@ jobs:
           # back to GITHUB_TOKEN and fails whenever upstream touches a workflow.
           SYNC_TOKEN: ${{ secrets.SYNC_TOKEN }}
           GH_TOKEN: ${{ secrets.SYNC_TOKEN || secrets.GITHUB_TOKEN }}
+          TARGET_BRANCH: ${{ inputs.branch || 'main' }}
         run: |
           if [ -z "$SYNC_TOKEN" ]; then
             echo "::warning::SYNC_TOKEN 未配置，回退到 GITHUB_TOKEN；上游改动 .github/workflows/ 时同步会失败。"
           fi
-          gh repo sync "$GITHUB_REPOSITORY" --source dreamhunter2333/cloudflare_temp_email --branch main
+          echo "Syncing branch: $TARGET_BRANCH"
+          gh repo sync "$GITHUB_REPOSITORY" --source dreamhunter2333/cloudflare_temp_email --branch "$TARGET_BRANCH"
